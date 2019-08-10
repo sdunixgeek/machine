@@ -47,6 +47,7 @@ type Driver struct {
 	ConfigDriveISO string
 	ConfigDriveURL string
 	NoShare        bool
+	HypervisorAppsEnabled bool
 }
 
 const (
@@ -108,6 +109,11 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			Name:   "vmwarefusion-no-share",
 			Usage:  "Disable the mount of your home directory",
 		},
+		mcnflag.BoolFlag{
+			EnvVar: "FUSION_HYPERVISOR_APPS_ENABLED",
+			Name:   "vmwarefusion-hypervisor-apps-enabled",
+			Usage:  "Enable running Hypervisor Applications by supporting VT-x/EPT inside VM",
+		},
 	}
 }
 
@@ -155,7 +161,7 @@ func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
 	d.SSHPassword = flags.String("vmwarefusion-ssh-password")
 	d.SSHPort = 22
 	d.NoShare = flags.Bool("vmwarefusion-no-share")
-
+	d.HypervisorAppsEnabled = flags.Bool("vmwarefusion-hypervisor-apps-enabled")
 	// We support a maximum of 16 cpu to be consistent with Virtual Hardware 10
 	// specs.
 	if d.CPU < 1 {

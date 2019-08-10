@@ -69,4 +69,7 @@ uuid.action = "create"
 numvcpus = "{{.CPU}}"
 hgfs.mapRootShare = "FALSE"
 hgfs.linkRootShare = "FALSE"
+{{ if .HypervisorAppsEnabled }}
+vhv.enable = "TRUE"
+{{ end }}
 `
