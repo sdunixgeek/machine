@@ -30,6 +30,7 @@ import (
 const (
 	B2DUser        = "docker"
 	B2DPass        = "tcuser"
+	B2DLocalScript = "/var/lib/boot2docker/bootlocal.sh"
 	isoFilename    = "boot2docker.iso"
 	isoConfigDrive = "configdrive.iso"
 )
@@ -385,7 +386,17 @@ func (d *Driver) Create() error {
 	if err != nil {
 		return err
 	}
-
+	// Enable Hypervisor KVM support if set
+	if d.HypervisorAppsEnabled {
+		modprobeKvm := "modprobe kvm_intel"
+		log.Infof("Add %s to %s\n\tMust restart to apply:\n\t\tdocker-machine stop %s && docker-machine start %s", modprobeKvm, B2DLocalScript,d.MachineName,d.MachineName)
+		// Test if B2DLocalScript exists
+		command := "grep -sqxF \"" + modprobeKvm + "\" " + B2DLocalScript + " || sudo echo " + modprobeKvm + " >> " + B2DLocalScript + "; sudo chmod a+x " + B2DLocalScript
+		_, _, err = vmrun("-gu", B2DUser, "-gp", B2DPass, "runScriptInGuest", d.vmxPath(), "/bin/sh", command)
+		if err != nil {
+			return err
+		}
+	}
 	// Enable Shared Folders
 	_, _, err = vmrun("-gu", B2DUser, "-gp", B2DPass, "enableSharedFolders", d.vmxPath())
 	if err != nil {
