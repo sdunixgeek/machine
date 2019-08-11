@@ -30,6 +30,7 @@ import (
 const (
 	B2DUser        = "docker"
 	B2DPass        = "tcuser"
+	B2DLocalScript = "/var/lib/boot2docker/bootlocal.sh"
 	isoFilename    = "boot2docker.iso"
 	isoConfigDrive = "configdrive.iso"
 )
@@ -47,6 +48,7 @@ type Driver struct {
 	ConfigDriveISO string
 	ConfigDriveURL string
 	NoShare        bool
+	HypervisorAppsEnabled bool
 }
 
 const (
@@ -108,6 +110,11 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			Name:   "vmwarefusion-no-share",
 			Usage:  "Disable the mount of your home directory",
 		},
+		mcnflag.BoolFlag{
+			EnvVar: "FUSION_HYPERVISOR_APPS_ENABLED",
+			Name:   "vmwarefusion-hypervisor-apps-enabled",
+			Usage:  "Enable running Hypervisor Applications by supporting VT-x/EPT inside VM",
+		},
 	}
 }
 
@@ -155,7 +162,7 @@ func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
 	d.SSHPassword = flags.String("vmwarefusion-ssh-password")
 	d.SSHPort = 22
 	d.NoShare = flags.Bool("vmwarefusion-no-share")
-
+	d.HypervisorAppsEnabled = flags.Bool("vmwarefusion-hypervisor-apps-enabled")
 	// We support a maximum of 16 cpu to be consistent with Virtual Hardware 10
 	// specs.
 	if d.CPU < 1 {
@@ -379,7 +386,17 @@ func (d *Driver) Create() error {
 	if err != nil {
 		return err
 	}
-
+	// Enable Hypervisor KVM support if set
+	if d.HypervisorAppsEnabled {
+		modprobeKvm := "modprobe kvm_intel"
+		log.Infof("Add %s to %s\n\tMust restart to apply:\n\t\tdocker-machine stop %s && docker-machine start %s", modprobeKvm, B2DLocalScript,d.MachineName,d.MachineName)
+		// Test if B2DLocalScript exists
+		command := "grep -sqxF \"" + modprobeKvm + "\" " + B2DLocalScript + " || sudo echo " + modprobeKvm + " >> " + B2DLocalScript + "; sudo chmod a+x " + B2DLocalScript
+		_, _, err = vmrun("-gu", B2DUser, "-gp", B2DPass, "runScriptInGuest", d.vmxPath(), "/bin/sh", command)
+		if err != nil {
+			return err
+		}
+	}
 	// Enable Shared Folders
 	_, _, err = vmrun("-gu", B2DUser, "-gp", B2DPass, "enableSharedFolders", d.vmxPath())
 	if err != nil {
